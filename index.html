@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>System-1 Validation</title>
+<style>
+  :root{--bg:#0b0e14;--card:#141925;--mut:#8a93a6;--fg:#e8ecf3;--grn:#27c08a;--red:#e5564b;--amb:#e7b549;--bd:#222a3a;--acc:#4c8bf5}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 40px}
+  header{padding:18px 16px 10px;position:sticky;top:0;background:linear-gradient(180deg,var(--bg) 70%,transparent);z-index:5}
+  h1{font-size:18px;margin:0 0 2px;letter-spacing:.2px}
+  .sub{color:var(--mut);font-size:12px}
+  .wrap{padding:0 12px;max-width:760px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin:10px 0}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);margin:0 0 10px}
+  .banner{background:#2a1d12;border:1px solid #6b4a1f;color:#f0c987;border-radius:12px;padding:10px 12px;font-size:13px;margin:10px 0}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--bd)}
+  .row:last-child{border-bottom:0}
+  .k{color:var(--mut);font-size:13px}.v{font-variant-numeric:tabular-nums;font-weight:600}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.4px}
+  .proven{background:rgba(39,192,138,.15);color:var(--grn)}
+  .cand{background:rgba(231,181,73,.15);color:var(--amb)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:right;color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase;padding:6px 6px;border-bottom:1px solid var(--bd)}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:9px 6px;border-bottom:1px solid var(--bd);font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:0}
+  .pos{color:var(--grn)}.neg{color:var(--red)}
+  .big{font-size:26px;font-weight:700}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+  .stat .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}.stat .l{color:var(--mut);font-size:12px}
+  .foot{color:var(--mut);font-size:11px;text-align:center;margin-top:16px}
+  .empty{color:var(--mut);text-align:center;padding:24px 0;font-size:14px}
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50}
+  #gate input{font-size:20px;padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--fg);text-align:center;width:160px;letter-spacing:6px}
+  #gate button{font-size:15px;padding:10px 22px;border-radius:10px;border:0;background:var(--acc);color:#fff;font-weight:600}
+  .hide{display:none!important}
+  .refresh{position:fixed;right:14px;bottom:14px;background:var(--acc);color:#fff;border:0;border-radius:99px;width:48px;height:48px;font-size:20px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+<div id="gate" class="hide">
+  <div class="sub">System-1 Validation — enter passcode</div>
+  <input id="pc" type="tel" inputmode="numeric" autocomplete="off" placeholder="••••">
+  <button onclick="tryUnlock()">Unlock</button>
+  <div id="gerr" class="sub" style="color:var(--red)"></div>
+</div>
+
+<div id="app" class="hide">
+<header><div class="wrap"><h1>System-1 · Validation</h1><div class="sub" id="asof">loading…</div></div></header>
+<div class="wrap" id="content"></div>
+<div class="foot">Read-only · advisory · not financial advice. Win-rate becomes profit only once a setup is PROVEN.</div>
+</div>
+<button class="refresh hide" id="rbtn" onclick="load()">⟳</button>
+
+<script>
+async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+let DATA=null;
+function num(x){return (x===null||x===undefined||x==='')?'—':x;}
+function rcls(r){return r>0?'pos':(r<0?'neg':'');}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function render(){
+  const c=document.getElementById('content');
+  if(!DATA){c.innerHTML='<div class="empty">No data file found.</div>';return;}
+  document.getElementById('asof').textContent='as of '+(DATA.generated_kwt||'—')+' KWT';
+  if(DATA.status==='pre-deploy'||!DATA.totals){
+    c.innerHTML='<div class="banner">⏳ Pre-deployment — no graded signals yet. This fills in automatically after the first live session + overnight grading.</div>';return;
+  }
+  const t=DATA.totals;
+  let h='';
+  h+='<div class="banner">⚠️ The headline win-rate is a <b>touch-rate</b>, not proven profit. Only <b>PROVEN</b> setups (N≥30 · 95%-LB&gt;50% · avg-R&gt;0) are trustworthy for sizing.</div>';
+  h+='<div class="grid">'+
+     `<div class="stat"><div class="n">${num(t.graded)}</div><div class="l">signals graded</div></div>`+
+     `<div class="stat"><div class="n">${num(t.proven)}</div><div class="l">PROVEN setups</div></div>`+
+     `<div class="stat"><div class="n ${rcls(t.avg_R)}">${t.avg_R>0?'+':''}${num(t.avg_R)}</div><div class="l">avg R (all)</div></div>`+
+     `<div class="stat"><div class="n">${num(t.win_pct)}%</div><div class="l">raw win-rate</div></div>`+
+     '</div>';
+  // setups table
+  h+='<div class="card"><h2>Setups — real results</h2>';
+  if(DATA.setups&&DATA.setups.length){
+    h+='<table><tr><th>Setup</th><th>N</th><th>Win</th><th>avg R</th><th>status</th></tr>';
+    for(const s of DATA.setups){h+=`<tr><td>${esc(s.fingerprint)}</td><td>${s.N}</td><td>${s.win_pct}%</td><td class="${rcls(s.avg_R)}">${s.avg_R>0?'+':''}${s.avg_R}</td><td><span class="pill ${s.status==='PROVEN'?'proven':'cand'}">${s.status}</span></td></tr>`;}
+    h+='</table>';
+  }else h+='<div class="empty">No setups graded yet.</div>';
+  h+='</div>';
+  // theta-clock
+  h+='<div class="card"><h2>Theta-Clock — fastest payers first</h2>';
+  if(DATA.theta&&DATA.theta.length){
+    h+='<table><tr><th>Setup</th><th>med bars</th><th>avg R</th><th>θ-adj R</th></tr>';
+    for(const r of DATA.theta){h+=`<tr><td>${esc(r.fingerprint)}</td><td>${num(r.median_bars)}</td><td class="${rcls(r.avg_R)}">${r.avg_R>0?'+':''}${r.avg_R}</td><td class="${rcls(r.theta_adj_r)}">${r.theta_adj_r>0?'+':''}${r.theta_adj_r}</td></tr>`;}
+    h+='</table><div class="sub" style="margin-top:8px">θ-adj R penalizes slow setups (theta eats slow wins). Higher = pays faster.</div>';
+  }else h+='<div class="empty">Needs graded data.</div>';
+  h+='</div>';
+  // today's signals
+  h+='<div class="card"><h2>Latest session signals</h2>';
+  if(DATA.recent&&DATA.recent.length){
+    h+='<table><tr><th>Sym</th><th>Dir</th><th>Module</th><th>fired</th></tr>';
+    for(const s of DATA.recent){h+=`<tr><td>${esc(s.sym)}</td><td>${esc(s.dir)}</td><td>${esc(s.module||s.reason||'')}</td><td>${s.fired?'✅':'·'}</td></tr>`;}
+    h+='</table>';
+  }else h+='<div class="empty">No signals recorded yet.</div>';
+  h+='</div>';
+  c.innerHTML=h;
+}
+async function load(){
+  try{const r=await fetch('./dashboard_data.json?t='+Date.now());DATA=await r.json();}catch(e){DATA=null;}
+  render();
+}
+async function tryUnlock(){
+  const pc=document.getElementById('pc').value;
+  const h=await sha256(pc);
+  if(!DATA){try{DATA=await (await fetch('./dashboard_data.json?t='+Date.now())).json();}catch(e){}}
+  if(DATA&&DATA.pass_sha256&&h!==DATA.pass_sha256){document.getElementById('gerr').textContent='wrong passcode';return;}
+  sessionStorage.setItem('ok','1');showApp();
+}
+function showApp(){document.getElementById('gate').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('rbtn').classList.remove('hide');load();}
+async function boot(){
+  try{DATA=await (await fetch('./dashboard_data.json?t='+Date.now())).json();}catch(e){DATA=null;}
+  if(DATA&&DATA.pass_sha256&&sessionStorage.getItem('ok')!=='1'){document.getElementById('gate').classList.remove('hide');}
+  else showApp();
+}
+boot();
+setInterval(()=>{if(document.getElementById('app').classList.contains('hide'))return;load();},120000);
+</script>
+</body>
+</html>
