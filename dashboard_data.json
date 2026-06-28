@@ -1,6 +1,8 @@
 {
-  "status": "pre-deploy",
-  "generated_kwt": "2026-06-28 02:56",
-  "pass_sha256": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
-  "recent": []
+  "enc": 1,
+  "kdf": "PBKDF2-SHA256",
+  "iter": 100000,
+  "salt": "hbSf89RD7NbdDFTSM0ZVew==",
+  "iv": "pzG9D7cw+XIAmu/H",
+  "ct": "p9w5GGZryz8BW43cF/FmJ/3HbOI8BUBaG9Iy+CBaURmGXwtYuAb30jkgvNTVCotRFLX/19bzfPkrGh4gyY5t3pbjfa+2IVSHZ6143u/8/08A/F2Or7M="
 }
