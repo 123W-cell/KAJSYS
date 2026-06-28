@@ -58,8 +58,17 @@
 <button class="refresh hide" id="rbtn" onclick="load()">⟳</button>
 
 <script>
-async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
-let DATA=null;
+let RAW=null, DATA=null;
+function b64(s){return Uint8Array.from(atob(s),c=>c.charCodeAt(0));}
+async function fetchRaw(){try{RAW=await (await fetch('./dashboard_data.json?t='+Date.now())).json();}catch(e){RAW=null;}}
+async function decryptWith(pass){
+  if(!RAW) return null;
+  if(!RAW.enc) return RAW;                 // plaintext (no passcode configured)
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass||''),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(RAW.salt),iterations:RAW.iter||100000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(RAW.iv)},key,b64(RAW.ct));   // throws on wrong passcode
+  return JSON.parse(new TextDecoder().decode(pt));
+}
 function num(x){return (x===null||x===undefined||x==='')?'—':x;}
 function rcls(r){return r>0?'pos':(r<0?'neg':'');}
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
@@ -107,21 +116,26 @@ function render(){
   c.innerHTML=h;
 }
 async function load(){
-  try{const r=await fetch('./dashboard_data.json?t='+Date.now());DATA=await r.json();}catch(e){DATA=null;}
+  await fetchRaw();
+  if(RAW&&RAW.enc){try{DATA=await decryptWith(sessionStorage.getItem('pc'));}catch(e){DATA=null;}}
+  else DATA=RAW;
   render();
 }
 async function tryUnlock(){
   const pc=document.getElementById('pc').value;
-  const h=await sha256(pc);
-  if(!DATA){try{DATA=await (await fetch('./dashboard_data.json?t='+Date.now())).json();}catch(e){}}
-  if(DATA&&DATA.pass_sha256&&h!==DATA.pass_sha256){document.getElementById('gerr').textContent='wrong passcode';return;}
-  sessionStorage.setItem('ok','1');showApp();
+  if(!RAW) await fetchRaw();
+  try{DATA=await decryptWith(pc);}catch(e){document.getElementById('gerr').textContent='wrong passcode';return;}
+  if(DATA===null){document.getElementById('gerr').textContent='no data file';return;}
+  sessionStorage.setItem('pc',pc);showApp();
 }
 function showApp(){document.getElementById('gate').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('rbtn').classList.remove('hide');load();}
 async function boot(){
-  try{DATA=await (await fetch('./dashboard_data.json?t='+Date.now())).json();}catch(e){DATA=null;}
-  if(DATA&&DATA.pass_sha256&&sessionStorage.getItem('ok')!=='1'){document.getElementById('gate').classList.remove('hide');}
-  else showApp();
+  await fetchRaw();
+  if(RAW&&RAW.enc){
+    const pc=sessionStorage.getItem('pc');
+    if(pc){try{DATA=await decryptWith(pc);showApp();return;}catch(e){}}
+    document.getElementById('gate').classList.remove('hide');
+  } else { DATA=RAW; showApp(); }
 }
 boot();
 setInterval(()=>{if(document.getElementById('app').classList.contains('hide'))return;load();},120000);
