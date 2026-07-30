@@ -60,7 +60,7 @@
 <script>
 let RAW=null, DATA=null;
 function b64(s){return Uint8Array.from(atob(s),c=>c.charCodeAt(0));}
-async function fetchRaw(){try{RAW=await (await fetch('./dashboard_data.json?t='+Date.now())).json();}catch(e){RAW=null;}}
+async function fetchRaw(){try{const r=await fetch('./dashboard_data.json?t='+Date.now());if(!r.ok){RAW=null;return;}RAW=await r.json();}catch(e){RAW=null;}} /* re-audit F4 2026-07-30: a 403/error JSON body must not be assigned as DATA */
 async function decryptWith(pass){
   if(!RAW) return null;
   if(!RAW.enc) return RAW;                 // plaintext (no passcode configured)
